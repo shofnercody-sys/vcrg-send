@@ -3,7 +3,7 @@
 Landing page for the Veridata Compliance Research Group mailer. Homeowners scan the QR code and upload copies of the pre-foreclosure solicitations they receive.
 
 - Live: https://shofnercody-sys.github.io/vcrg-send/ (also `/send/`)
-- Files: `index.html` (main page), `thanks.html`, and `send/` (identical copies (an identical copy, so `veridatacompliance.org/send` works once the domain is connected)
+- Files: `index.html` (main page), `thanks.html`, and `send/` (identical copies, so `veridatacompliance.org/send` works once the domain is connected)
 
 ## 1. How uploads work (no login needed)
 
