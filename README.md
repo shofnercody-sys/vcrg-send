@@ -3,22 +3,21 @@
 Landing page for the Veridata Compliance Research Group mailer. Homeowners scan the QR code and upload copies of the pre-foreclosure solicitations they receive.
 
 - Live: https://shofnercody-sys.github.io/vcrg-send/ (also `/send/`)
-- Files: `index.html` (main page) and `send/index.html` (an identical copy, so `veridatacompliance.org/send` works once the domain is connected)
+- Files: `index.html` (main page), `thanks.html`, and `send/` (identical copies (an identical copy, so `veridatacompliance.org/send` works once the domain is connected)
 
-## 1. Add your Tally form ID
+## 1. How uploads work (no login needed)
 
-Each page has **2 spots** marked `<!-- PASTE YOUR TALLY FORM ID HERE -->`:
+The upload form is built into the page. Each submission is emailed, with the photos attached, to
+**ashlee@veridatacompliance.org** through [FormSubmit](https://formsubmit.co) (free, no account).
 
-1. The "Open the upload form" button: `https://tally.so/r/TALLY_FORM_ID`
-2. The embedded iframe: `https://tally.so/embed/TALLY_FORM_ID?...`
-
-Your form ID is the last part of your Tally share link (`https://tally.so/r/abc123` gives `abc123`). Replace `TALLY_FORM_ID` in **both** files (`index.html` and `send/index.html`).
-
-Shortcut (Git Bash, from this folder, replace `abc123` with your ID):
-
-```bash
-sed -i 's/TALLY_FORM_ID/abc123/g' index.html send/index.html
-```
+- **One-time activation:** the very first submission makes FormSubmit email that inbox a
+  confirmation link. Click it once. Until then, submissions are held, not delivered.
+- After activation FormSubmit also emails a random string. You can put it in place of the email
+  address in the form's `action` (in both `index.html` and `send/index.html`) to hide the address
+  from spam bots.
+- Photos are shrunk on the phone before sending (max 1800px JPEG). Limit: 10 photos, under ~9.5MB per submission.
+- Visitors see a quick "I'm not a robot" check from FormSubmit, then land on `thanks.html`.
+- To change the inbox, edit the `action="https://formsubmit.co/..."` line in both pages.
 
 ## 2. Re-deploy after any edit
 

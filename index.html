@@ -85,9 +85,46 @@
     border: 2px solid var(--ink);
   }
   .btn:hover { background: var(--paper); color: var(--ink); }
-  .form-note { font-size: 18px; color: var(--muted); margin: 12px 0 20px; }
-  .form-frame { border-top: var(--rule); padding-top: 8px; }
-  .form-frame iframe { display: block; width: 100%; border: 0; min-height: 400px; }
+  button.btn { cursor: pointer; }
+  button.btn[disabled] { opacity: .6; cursor: wait; }
+  .form-note { font-size: 18px; color: var(--muted); margin: 0 0 20px; }
+
+  /* Upload form */
+  .field { margin: 0 0 22px; }
+  .field > label, .field > .label { display: block; font-weight: 600; margin: 0 0 6px; }
+  .hint { display: block; font-size: 18px; color: var(--muted); margin: -2px 0 8px; font-weight: 400; }
+  .opt { font-weight: 400; color: var(--muted); }
+  input[type=text], input[type=tel], select, textarea {
+    display: block; width: 100%; min-height: 52px;
+    padding: 12px 14px;
+    font: inherit; font-size: 19px; color: var(--ink);
+    background: var(--paper);
+    border: 2px solid var(--ink); border-radius: 0;
+    -webkit-appearance: none; appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px;
+  }
+  textarea { min-height: 110px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .file-pick {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 56px; padding: 12px 20px;
+    border: 2px dashed var(--ink); background: var(--paper);
+    font-weight: 600; text-align: center; cursor: pointer;
+  }
+  .file-pick:focus-within { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .file-pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .file-list { list-style: none; margin: 10px 0 0; padding: 0; font-size: 18px; }
+  .file-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: var(--rule); padding: 4px 0; }
+  .file-list li span { overflow-wrap: anywhere; }
+  .file-list button { min-height: 48px; min-width: 48px; padding: 0 12px; font: inherit; font-size: 18px; background: var(--paper); color: var(--ink); border: 1px solid var(--ink); cursor: pointer; }
+  .check { display: flex; gap: 14px; align-items: flex-start; cursor: pointer; }
+  .check input { flex: none; width: 28px; height: 28px; margin: 2px 0 0; accent-color: #000; }
+  .err { border: 2px solid var(--ink); padding: 12px 14px; font-weight: 600; margin: 0 0 18px; }
+  .err[hidden] { display: none; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
   /* Tips */
   ul.tips { margin: 0; padding-left: 22px; }
@@ -147,16 +184,77 @@
 
   <section id="upload" aria-labelledby="upload-h">
     <h2 id="upload-h">Send us your mail</h2>
+    <p class="form-note">Fill this out once for each sender. You can add up to 10 photos at a time.</p>
 
-    <!-- PASTE YOUR TALLY FORM ID HERE (spot 1 of 2): replace TALLY_FORM_ID in the link below -->
-    <a class="btn" href="https://tally.so/r/TALLY_FORM_ID" target="_blank" rel="noopener">Open the upload form</a>
-    <p class="form-note">The form also appears below. If it doesn't load, use the button above.</p>
+    <!-- Submissions are emailed to the address in the form action via FormSubmit (formsubmit.co).
+         After the first submission, FormSubmit emails that inbox an activation link that must be clicked once. -->
+    <form id="vcrg-form" action="https://formsubmit.co/ashlee@veridatacompliance.org" method="POST" enctype="multipart/form-data" novalidate>
+      <input type="hidden" name="_subject" value="New VCRG upload">
+      <input type="hidden" name="_template" value="table">
+      <input type="hidden" name="_next" id="f-next" value="https://shofnercody-sys.github.io/vcrg-send/thanks.html">
+      <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="_honey" tabindex="-1" autocomplete="off"></label></div>
 
-    <div class="form-frame">
-      <!-- PASTE YOUR TALLY FORM ID HERE (spot 2 of 2): replace TALLY_FORM_ID in the iframe below -->
-      <iframe data-tally-src="https://tally.so/embed/TALLY_FORM_ID?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1" loading="lazy" width="100%" height="900" marginheight="0" marginwidth="0" title="Send us your pre-foreclosure mail"></iframe>
-      <script>var d=document,w="https://tally.so/widgets/embed.js",v=function(){"undefined"!=typeof Tally?Tally.loadEmbeds():d.querySelectorAll("iframe[data-tally-src]:not([src])").forEach(function(e){e.src=e.dataset.tallySrc})};if("undefined"!=typeof Tally)v();else if(d.querySelector('script[src="'+w+'"]')==null){var s=d.createElement("script");s.src=w,s.onload=v,s.onerror=v,d.body.appendChild(s);}</script>
-    </div>
+      <p class="err" id="f-err" role="alert" tabindex="-1" hidden></p>
+
+      <div class="field">
+        <label for="f-name">Your name</label>
+        <input type="text" id="f-name" name="Name" autocomplete="name" required>
+      </div>
+
+      <div class="field">
+        <label for="f-phone">Your phone number</label>
+        <input type="tel" id="f-phone" name="Phone" autocomplete="tel" inputmode="tel" required>
+      </div>
+
+      <div class="field">
+        <label for="f-app">How should we pay you?</label>
+        <select id="f-app" name="Payment app" required>
+          <option value="">Choose one</option>
+          <option>Zelle</option>
+          <option>Venmo</option>
+          <option>Cash App</option>
+          <option>PayPal</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="f-handle">Your payment name, phone or email for that app</label>
+        <input type="text" id="f-handle" name="Payment handle" autocomplete="off" required>
+      </div>
+
+      <div class="field">
+        <label for="f-sender">Who sent it?</label>
+        <span class="hint" id="f-sender-hint">Company or person's name, and their phone number or website if you have it.</span>
+        <textarea id="f-sender" name="Who sent it" aria-describedby="f-sender-hint" required></textarea>
+      </div>
+
+      <div class="field">
+        <span class="label" id="f-photos-label">Photos or screenshots</span>
+        <span class="hint">Letters, postcards, texts or emails.</span>
+        <label class="file-pick">
+          <input type="file" id="f-photos" accept="image/*,application/pdf" multiple aria-labelledby="f-photos-label">
+          <span id="f-pick-text">Add photos</span>
+        </label>
+        <ul class="file-list" id="f-list"></ul>
+        <div id="f-slots" hidden></div>
+      </div>
+
+      <div class="field">
+        <label for="f-calls">Phone call notes <span class="opt">(optional)</span></label>
+        <span class="hint" id="f-calls-hint">Who called, their number, the date, and what they offered. Please don't record calls.</span>
+        <textarea id="f-calls" name="Call notes" aria-describedby="f-calls-hint"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="check">
+          <input type="checkbox" id="f-ok" name="Numbers blacked out" value="Yes" required>
+          <span>I blacked out any loan, account or Social Security numbers.</span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn" id="f-submit">Send</button>
+    </form>
   </section>
 
   <section aria-labelledby="tips-h">
@@ -181,7 +279,7 @@
     <p>Only solicitations related to your pre-foreclosure qualify. A piece is &ldquo;new&rdquo; if Veridata Compliance Research Group (&ldquo;VCRG&rdquo;) has not already received the same mailer, message or call script. Duplicates and repeats are not paid, and VCRG decides which pieces qualify. VCRG may change or stop payments at any time; qualifying pieces received before then are still paid.</p>
   </section>
 
-  <!-- [REVIEW WITH ATTORNEY] Confirm scope of "don't sell" (payment details only vs. all personal info) and any CCPA disclosures. -->
+  <!-- [REVIEW WITH ATTORNEY] Submissions are delivered by email via FormSubmit (formsubmit.co), a third-party processor. Confirm scope of "don't sell" (payment details only vs. all personal info) and any CCPA disclosures. -->
   <section class="fine" id="privacy" aria-labelledby="privacy-h">
     <h2 id="privacy-h">Privacy notice</h2>
     <p><strong>What we collect:</strong> your name, phone number, payment app handle, and copies of the solicitations you choose to send us.</p>
@@ -199,5 +297,96 @@
   </div>
 </footer>
 
+
+<script>
+(function () {
+  var form = document.getElementById('vcrg-form');
+  if (!form) return;
+  var MAX_FILES = 10, MAX_TOTAL = 9.5 * 1024 * 1024, MAX_DIM = 1800;
+  var picker = document.getElementById('f-photos');
+  var list = document.getElementById('f-list');
+  var slots = document.getElementById('f-slots');
+  var err = document.getElementById('f-err');
+  var btn = document.getElementById('f-submit');
+  var pickText = document.getElementById('f-pick-text');
+  var files = [];
+  var canAssign = (function () { try { return !!new DataTransfer().items; } catch (e) { return false; } })();
+
+  try { if (/^https?:/.test(location.protocol)) document.getElementById('f-next').value = new URL('thanks.html', location.href).href; } catch (e) {}
+
+  if (!canAssign) { picker.name = 'Photos'; }
+
+  function showErr(msg) { err.textContent = msg; err.hidden = false; err.focus(); }
+  function render() {
+    list.innerHTML = '';
+    files.forEach(function (f, i) {
+      var li = document.createElement('li');
+      var name = document.createElement('span'); name.textContent = f.name;
+      var rm = document.createElement('button'); rm.type = 'button'; rm.textContent = 'Remove';
+      rm.setAttribute('aria-label', 'Remove ' + f.name);
+      rm.onclick = function () { files.splice(i, 1); render(); };
+      li.appendChild(name); li.appendChild(rm); list.appendChild(li);
+    });
+    pickText.textContent = files.length ? 'Add more photos (' + files.length + ' added)' : 'Add photos';
+  }
+  picker.addEventListener('change', function () {
+    if (!canAssign) { files = Array.prototype.slice.call(picker.files); render(); return; }
+    Array.prototype.forEach.call(picker.files, function (f) { files.push(f); });
+    if (files.length > MAX_FILES) { files = files.slice(0, MAX_FILES); showErr('Up to ' + MAX_FILES + ' photos at a time. Send the rest in a second form.'); }
+    picker.value = '';
+    render();
+  });
+
+  function shrink(file) {
+    return new Promise(function (resolve) {
+      if (!/^image\/(jpeg|png|webp|heic|heif)/i.test(file.type) || !window.createImageBitmap) return resolve(file);
+      createImageBitmap(file).then(function (bmp) {
+        var scale = Math.min(1, MAX_DIM / Math.max(bmp.width, bmp.height));
+        if (scale === 1 && file.size < 900 * 1024) return resolve(file);
+        var c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        c.toBlob(function (b) {
+          if (!b || b.size >= file.size) return resolve(file);
+          resolve(new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.82);
+      }).catch(function () { resolve(file); });
+    });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    err.hidden = true;
+    var need = [['f-name', 'your name'], ['f-phone', 'your phone number'], ['f-app', 'how we should pay you'], ['f-handle', 'your payment name, phone or email'], ['f-sender', 'who sent it']];
+    for (var i = 0; i < need.length; i++) {
+      var el = document.getElementById(need[i][0]);
+      if (!el.value.trim()) { showErr('Please add ' + need[i][1] + '.'); el.focus(); return; }
+    }
+    var notes = document.getElementById('f-calls').value.trim();
+    if (!files.length && !notes) { showErr('Please add at least one photo, or fill in the phone call notes.'); return; }
+    if (!document.getElementById('f-ok').checked) { showErr('Please black out any loan, account or Social Security numbers, then check the box.'); return; }
+
+    btn.disabled = true; btn.textContent = 'Sending... please wait';
+    Promise.all(files.map(shrink)).then(function (small) {
+      var total = small.reduce(function (t, f) { return t + f.size; }, 0);
+      if (total > MAX_TOTAL) {
+        btn.disabled = false; btn.textContent = 'Send';
+        showErr('These photos are too large to send together. Please remove a few and send them in a second form.');
+        return;
+      }
+      if (canAssign) {
+        slots.innerHTML = '';
+        small.forEach(function (f, i) {
+          var inp = document.createElement('input');
+          inp.type = 'file'; inp.name = 'Photo ' + (i + 1);
+          var dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files;
+          slots.appendChild(inp);
+        });
+      }
+      HTMLFormElement.prototype.submit.call(form);
+    });
+  });
+})();
+</script>
 </body>
 </html>
