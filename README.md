@@ -8,7 +8,7 @@ Landing page for the Veridata Compliance Research Group mailer. Homeowners scan 
 ## 1. How uploads work (no login needed)
 
 The upload form is built into the page. Each submission is emailed, with the photos attached, to
-**ashlee@veridatacompliance.org** through [FormSubmit](https://formsubmit.co) (free, no account).
+**cody@quickleadsllc.org** through [FormSubmit](https://formsubmit.co) (free, no account).
 
 - **One-time activation:** the very first submission makes FormSubmit email that inbox a
   confirmation link. Click it once. Until then, submissions are held, not delivered.
