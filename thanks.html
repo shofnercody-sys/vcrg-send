@@ -34,6 +34,7 @@
   .btn { display: flex; align-items: center; justify-content: center; min-height: 56px; max-width: 320px; margin: 18px auto 0; padding: 12px 24px; background: var(--ink); color: var(--paper); font-family: var(--sans); font-weight: 600; font-size: 20px; text-decoration: none; border: 2px solid var(--ink); }
   .btn:hover { background: var(--paper); color: var(--ink); }
   .btn:focus-visible { box-shadow: inset 0 0 0 2px var(--paper); }
+  .ref { font-family: var(--sans); font-size: 18px; margin: 0 0 18px; }
   .contact { font-family: var(--sans); font-size: 18px; }
   .contact a { display: inline-block; padding: 12px 0; }
   footer { border-top: 3px solid var(--ink); font-family: var(--sans); font-size: 18px; text-align: center; color: var(--muted); }
@@ -55,6 +56,7 @@
   <main>
     <p class="kicker">Submission received</p>
     <h1>Thank you. We got it.</h1>
+    <p class="ref" id="ref" hidden>Your reference number: <strong id="ref-n"></strong></p>
     <p>We'll check what you sent against what we already have and pay $2 for each new piece to the payment app you gave us.</p>
     <p><strong>We only send money.</strong> We will never ask you to pay, send money, buy gift cards, or share a code from your payment app.</p>
     <div class="box">
@@ -70,5 +72,6 @@
     <p>&copy; 2026 Veridata Compliance Research Group</p>
   </div>
 </footer>
+<script>try{var r=new URLSearchParams(location.search).get("ref");if(r&&/^[A-Z0-9]{4,12}$/.test(r)){document.getElementById("ref-n").textContent=r;document.getElementById("ref").hidden=false;}}catch(e){}</script>
 </body>
 </html>

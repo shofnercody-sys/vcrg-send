@@ -379,7 +379,7 @@
 
               <div class="submit-row">
                 <button type="submit" class="btn" id="f-submit">Send my submission</button>
-                <p class="after-submit">After you tap Send, you may briefly see a page from our form provider, FormSubmit, asking you to tick &ldquo;I'm not a robot.&rdquo;</p>
+                <p class="after-submit" id="f-status">Sending can take a minute. Please keep this screen open until you see &ldquo;Thank you.&rdquo;</p>
               </div>
             </form>
           </div>
@@ -471,7 +471,7 @@
 
   if (!canAssign) { picker.name = 'Photos'; }
 
-  function resetBtn() { btn.disabled = false; btn.textContent = btnLabel; }
+  function resetBtn() { btn.disabled = false; btn.textContent = btnLabel; sending = false; }
   window.addEventListener('pageshow', function (e) { if (e.persisted) resetBtn(); });
 
   function showErr(msg) { err.textContent = msg; err.hidden = false; err.focus(); }
@@ -479,6 +479,7 @@
     list.innerHTML = '';
     if (!canAssign) {
       files.forEach(function (f) { var li = document.createElement('li'); li.textContent = f.name; list.appendChild(li); });
+      pickText.textContent = files.length ? 'Change photos (' + files.length + ' chosen). Pick them all at once.' : 'Add photos';
       return;
     }
     files.forEach(function (f, i) {
@@ -507,25 +508,183 @@
     render();
   });
 
-  function shrink(file) {
+  // Normalise odd/missing file types so the server accepts them.
+  function fixType(f) {
+    var t = (f.type || '').toLowerCase();
+    if (t === 'image/jpg' || t === 'image/pjpeg') t = 'image/jpeg';
+    if (!t) {
+      var ext = (f.name.split('.').pop() || '').toLowerCase();
+      t = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', heif: 'image/heif', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' }[ext] || 'application/octet-stream';
+    }
+    if (t === f.type) return f;
+    try { return new File([f], f.name, { type: t }); } catch (e) { return f; }
+  }
+  function drawToJpeg(src, w, h, name, orig, done) {
+    var scale = Math.min(1, MAX_DIM / Math.max(w, h));
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * scale)); c.height = Math.max(1, Math.round(h * scale));
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    c.toBlob(function (b) {
+      c.width = c.height = 0; // free canvas memory (iOS)
+      if (!b || b.size >= orig.size) return done(fixType(orig));
+      try { done(new File([b], name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })); }
+      catch (e) { b.name = name.replace(/\.\w+$/, '') + '.jpg'; done(b); }
+    }, 'image/jpeg', 0.82);
+  }
+  function shrink(file0) {
+    var file = fixType(file0);
     return new Promise(function (resolve) {
-      if (!/^image\/(jpeg|png|webp|heic|heif)/i.test(file.type) || !window.createImageBitmap) return resolve(file);
+      if (!/^image\//i.test(file.type) || /gif$/i.test(file.type)) return resolve(file);
+      if (file.size < 900 * 1024 && /jpeg$/i.test(file.type)) return resolve(file);
+      function viaImg() {
+        try {
+          var url = URL.createObjectURL(file), img = new Image();
+          img.onload = function () {
+            var w = img.naturalWidth, h = img.naturalHeight;
+            drawToJpeg(img, w, h, file.name, file, function (r) { URL.revokeObjectURL(url); resolve(r); });
+          };
+          img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+          img.src = url;
+        } catch (e) { resolve(file); }
+      }
+      if (!window.createImageBitmap) return viaImg();
       createImageBitmap(file).then(function (bmp) {
-        var scale = Math.min(1, MAX_DIM / Math.max(bmp.width, bmp.height));
-        if (scale === 1 && file.size < 900 * 1024) return resolve(file);
-        var c = document.createElement('canvas');
-        c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
-        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-        c.toBlob(function (b) {
-          if (!b || b.size >= file.size) return resolve(file);
-          resolve(new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
-        }, 'image/jpeg', 0.82);
-      }).catch(function () { resolve(file); });
+        drawToJpeg(bmp, bmp.width, bmp.height, file.name, file, function (r) { if (bmp.close) bmp.close(); resolve(r); });
+      }, viaImg);
     });
+  }
+  // One at a time, so older phones don't run out of memory.
+  function shrinkAll(list) {
+    var out = [];
+    return list.reduce(function (p, f) {
+      return p.then(function () { return shrink(f).then(function (r) { out.push(r); }); });
+    }, Promise.resolve()).then(function () { return out; });
+  }
+
+  // Keep typed answers if the page reloads (never photos).
+  var SAVE_KEY = 'vcrg-form-v1', SAVE_IDS = ['f-name', 'f-phone', 'f-app', 'f-handle', 'f-sender', 'f-calls'];
+  try {
+    var saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (saved) SAVE_IDS.forEach(function (id) { if (saved[id] && !document.getElementById(id).value) document.getElementById(id).value = saved[id]; });
+  } catch (e) {}
+  form.addEventListener('input', function () {
+    try { var o = {}; SAVE_IDS.forEach(function (id) { o[id] = document.getElementById(id).value; }); localStorage.setItem(SAVE_KEY, JSON.stringify(o)); } catch (e) {}
+  });
+  function clearSaved() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  var sending = false;
+  window.addEventListener('beforeunload', function (e) { if (sending) { e.preventDefault(); e.returnValue = ''; return ''; } });
+  var statusEl = document.getElementById('f-status');
+  function status(t) { if (statusEl) statusEl.textContent = t; }
+
+  // ---- Sending ----
+  // 1st choice: our own upload service (stores photos + details, retries on hiccups).
+  // 2nd choice: FormSubmit email (the original method), used only if our service can't be reached.
+  var API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'http://localhost:3210' : 'https://vcrg-upload.vercel.app';
+  var NOTIFY = 'https://formsubmit.co/ajax/cody@quickleadsllc.org';
+  var API_MAX_FILE = 4300000;
+
+  function newId() {
+    try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36); } catch (e) {}
+    var s = ''; for (var i = 0; i < 40; i++) s += Math.floor(Math.random() * 36).toString(36); return s;
+  }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function fetchTimeout(url, opts, ms) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    if (ctl) opts.signal = ctl.signal;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); }, ms);
+    return fetch(url, opts).then(function (r) { clearTimeout(t); return r; }, function (e) { clearTimeout(t); throw e; });
+  }
+  // Retry network errors and 5xx/429 up to 4 tries; give up immediately on 4xx (bad input).
+  function withRetry(fn) {
+    var delays = [0, 1500, 4000, 8000];
+    var i = 0;
+    function attempt() {
+      if (i > 0) status('Connection hiccup. Trying again (' + (i + 1) + ' of ' + delays.length + '). Please keep this screen open.');
+      return wait(delays[i]).then(fn).then(function (r) {
+        if (r.ok) return r.json();
+        if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429) { var e = new Error('rejected ' + r.status); e.fatal = true; throw e; }
+        throw new Error('status ' + r.status);
+      }).catch(function (e) {
+        if (e.fatal || ++i >= delays.length) throw e;
+        return attempt();
+      });
+    }
+    return attempt();
+  }
+  function val(id) { return document.getElementById(id).value.trim(); }
+
+  function sendViaApi(small) {
+    var id = newId(), uploaded = [], n = small.length;
+    var chain = Promise.resolve();
+    small.forEach(function (f, i) {
+      chain = chain.then(function () {
+        btn.textContent = n > 1 ? 'Uploading photo ' + (i + 1) + ' of ' + n + '...' : 'Uploading your photo...';
+        return withRetry(function () {
+          return fetchTimeout(API + '/api/upload', {
+            method: 'POST', body: f,
+            headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Sub-Id': id, 'X-File-Index': String(i + 1), 'X-File-Name': encodeURIComponent(f.name || ('photo-' + (i + 1))) }
+          }, Math.max(60000, Math.round(f.size / 25)));
+        }).then(function (j) { status('Sending can take a minute. Please keep this screen open until you see \u201cThank you.\u201d'); uploaded.push({ pathname: j.pathname, name: f.name, size: j.size }); });
+      });
+    });
+    return chain.then(function () {
+      btn.textContent = 'Finishing up...';
+      var body = {
+        id: id, name: val('f-name'), phone: val('f-phone'), paymentApp: val('f-app'), paymentHandle: val('f-handle'),
+        whoSentIt: val('f-sender'), callNotes: val('f-calls'), numbersBlackedOut: document.getElementById('f-ok').checked,
+        files: uploaded, page: location.pathname, _honey: (form.querySelector('[name=_honey]') || {}).value || ''
+      };
+      return withRetry(function () {
+        return fetchTimeout(API + '/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 30000);
+      }).then(function (j) { return { ref: j.ref, body: body }; });
+    });
+  }
+
+  function notifyByEmail(res) {
+    // Best effort only: a short email so new uploads show up in the inbox. No personal details; the data is saved privately.
+    try {
+      var fd = new URLSearchParams();
+      fd.append('_subject', 'New VCRG upload (' + res.ref + ')');
+      fd.append('_template', 'table');
+      fd.append('Ref', res.ref);
+      fd.append('Photos', String(res.body.files.length));
+      fd.append('Call notes included', res.body.callNotes ? 'Yes' : 'No');
+      fd.append('View all uploads', API + '/admin');
+      var p = fetch(NOTIFY, { method: 'POST', keepalive: true, headers: { 'Accept': 'application/json' }, body: fd }).catch(function () {});
+      return Promise.race([p, wait(1500)]);
+    } catch (e) { return Promise.resolve(); }
+  }
+
+  function thanksUrl(ref) {
+    var u = document.getElementById('f-next').value;
+    return ref ? u + (u.indexOf('?') < 0 ? '?' : '&') + 'ref=' + encodeURIComponent(ref) : u;
+  }
+
+  function sendViaFormSubmit(small) {
+    var total = small.reduce(function (t, f) { return t + f.size; }, 0);
+    if (total > MAX_TOTAL) {
+      resetBtn();
+      showErr('Sorry, we could not send this right now. Please try again in a few minutes, or email your photos to ashlee@veridatacompliance.org.');
+      return;
+    }
+    if (canAssign) {
+      slots.innerHTML = '';
+      small.forEach(function (f, i) {
+        var inp = document.createElement('input');
+        inp.type = 'file'; inp.name = 'Photo ' + (i + 1);
+        var dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files;
+        slots.appendChild(inp);
+      });
+    }
+    btn.textContent = 'Sending... please wait';
+    status('Sending another way. You may briefly see a page from our form provider, FormSubmit, asking you to tick “I’m not a robot.”');
+    sending = false; clearSaved();
+    HTMLFormElement.prototype.submit.call(form);
   }
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    if (btn.disabled) return;
     err.hidden = true;
     var need = [['f-name', 'your name'], ['f-phone', 'your phone number'], ['f-app', 'how we should pay you'], ['f-handle', 'your payment name, phone or email'], ['f-sender', 'who sent it']];
     for (var i = 0; i < need.length; i++) {
@@ -535,26 +694,23 @@
     var notes = document.getElementById('f-calls').value.trim();
     if (!files.length && !notes) { showErr('Please add at least one photo, or fill in the phone call notes.'); return; }
     if (!document.getElementById('f-ok').checked) { showErr('Please black out any loan, account or Social Security numbers, then check the box.'); return; }
+    if (files.length > MAX_FILES) { showErr('Up to ' + MAX_FILES + ' photos at a time. Please choose fewer.'); return; }
 
-    btn.disabled = true; btn.textContent = 'Sending... please wait';
-    if (!canAssign && files.length > MAX_FILES) { showErr('Up to ' + MAX_FILES + ' photos at a time. Please choose fewer.'); return; }
-    Promise.all(files.map(canAssign ? shrink : function (f) { return Promise.resolve(f); })).then(function (small) {
-      var total = small.reduce(function (t, f) { return t + f.size; }, 0);
-      if (total > MAX_TOTAL) {
-        resetBtn();
-        showErr('These photos are too large to send together. Please remove a few and send them in a second form.');
-        return;
-      }
-      if (canAssign) {
-        slots.innerHTML = '';
-        small.forEach(function (f, i) {
-          var inp = document.createElement('input');
-          inp.type = 'file'; inp.name = 'Photo ' + (i + 1);
-          var dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files;
-          slots.appendChild(inp);
-        });
-      }
-      HTMLFormElement.prototype.submit.call(form);
+    btn.disabled = true; btn.textContent = 'Preparing your photos...'; sending = true;
+    shrinkAll(files).then(function (small) {
+      var tooBigForApi = small.some(function (f) { return f.size > API_MAX_FILE; });
+      if (!window.fetch || tooBigForApi) return sendViaFormSubmit(small);
+      return sendViaApi(small).then(function (res) {
+        btn.textContent = 'Sent!';
+        sending = false; clearSaved();
+        return notifyByEmail(res).then(function () { location.href = thanksUrl(res.ref); });
+      }, function () {
+        // Our service could not take it (down, or refused a file): send it the backup way instead.
+        sendViaFormSubmit(small);
+      });
+    }).catch(function () {
+      sending = false; resetBtn();
+      showErr('Sorry, something went wrong. Please try again, or email your photos to ashlee@veridatacompliance.org.');
     });
   });
 })();
